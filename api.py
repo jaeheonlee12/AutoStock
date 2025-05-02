@@ -19,41 +19,41 @@ def get_all_codes():
     kosdaq = kiwoom.GetCodeListByMarket('10')
     return kospi + kosdaq
 
-# 종목별 현재가 및 시가총액 조회 후 필터링
+# 종목 필터링: 현재가 및 시가총액 조건
 def filter_stocks_by_price_and_market_cap(codes):
     filtered = []
 
     for code in codes:
         try:
-            info = kiwoom.GetMasterStockInfo(code)
             name = kiwoom.GetMasterCodeName(code)
-
-            price = int(info['현재가'].replace(',', '').strip())
-            market_cap = int(info['시가총액'].replace(',', '').strip())
+            price = kiwoom.GetMasterLastPrice(code)  # 수정됨
+            listed_stock = kiwoom.GetMasterListedStockCnt(code)
+            market_cap = price * listed_stock
 
             if 800 <= price <= 20000 and 700_000_000_000 <= market_cap <= 3_000_000_000_000:
                 filtered.append((code, name))
         except Exception as e:
             print(f"{code} 오류: {e}")
-        time.sleep(0.25)  # 과도한 요청 방지
+        time.sleep(0.25)
 
     return filtered
 
-# 종목별 일봉 데이터 수집 (최근 3년 약 750거래일 기준)
+# 종목별 일봉 데이터 수집
 def get_daily_chart(code, count=750):
+    기준일자 = time.strftime("%Y%m%d")  # 오늘 날짜 자동 지정
     df = kiwoom.block_request("opt10081",
                               종목코드=code,
-                              기준일자="20250430",  # 기준일자는 실행 시점에 맞게 조정 가능
+                              기준일자=기준일자,
                               수정주가구분=1,
                               output="주식일봉차트조회",
                               next=0)
+
     df = pd.DataFrame(df)
     df = df.sort_values(by='일자')
     return df.head(count)
 
-# 전체 실행 함수 (저장 경로: 바탕화면/코딩)
+# 전체 실행 함수
 def run_data_collection():
-    # 바탕화면의 '코딩' 폴더 경로 자동 지정
     desktop = os.path.join(os.path.expanduser("~"), "Desktop")
     save_dir = os.path.join(desktop, "코딩")
     os.makedirs(save_dir, exist_ok=True)
@@ -72,7 +72,7 @@ def run_data_collection():
             print(f"{name} ({code}) 저장 완료")
         except Exception as e:
             print(f"{name} ({code}) 데이터 수집 실패: {e}")
-        time.sleep(0.3)
+        time.sleep(0.3)  # 요청 제한 방지
 
 # 실행
 run_data_collection()
